@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>边缘智能运动助教</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+
+<!-- ═══ 运动页 ═══ -->
+<div id="page-sport" class="page active">
+  <div class="topbar">
+    <div>
+      <div class="greeting" id="greeting">早上好</div>
+      <div class="topbar-sub">开始今日训练</div>
+    </div>
+    <div id="conn-badge" class="conn-badge disconnected">
+      <span class="conn-dot"></span>
+      <span id="conn-text">未连接</span>
+    </div>
+  </div>
+
+  <div class="scroll-content">
+    <div class="section-title">选择运动</div>
+    <div class="mode-cards">
+      <div class="mode-card selected" id="card-pullup" onclick="switchMode('pullup')">
+        <div class="mode-icon">💪</div>
+        <div class="mode-label">引体向上</div>
+        <div class="mode-desc">背阔肌 · 肱二头肌</div>
+        <div class="mode-last" id="last-pullup"></div>
+      </div>
+      <div class="mode-card" id="card-pushup" onclick="switchMode('pushup')">
+        <div class="mode-icon">🏋️</div>
+        <div class="mode-label">俯卧撑</div>
+        <div class="mode-desc">胸大肌 · 肱三头肌</div>
+        <div class="mode-last" id="last-pushup"></div>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top:24px">设定目标</div>
+    <div class="goal-chips">
+      <div class="chip selected" data-goal="free" onclick="selectGoal(this)">自由</div>
+      <div class="chip" data-goal="10"  onclick="selectGoal(this)">10个</div>
+      <div class="chip" data-goal="20"  onclick="selectGoal(this)">20个</div>
+      <div class="chip" data-goal="30"  onclick="selectGoal(this)">30个</div>
+      <div class="chip" data-goal="50"  onclick="selectGoal(this)">50个</div>
+      <div class="chip" data-goal="t1"  onclick="selectGoal(this)">1分钟</div>
+      <div class="chip" data-goal="t3"  onclick="selectGoal(this)">3分钟</div>
+      <div class="chip" data-goal="t5"  onclick="selectGoal(this)">5分钟</div>
+    </div>
+
+    <div class="go-area">
+      <div class="go-btn disabled" id="go-btn" onclick="startTraining()">GO</div>
+      <div class="go-hint" id="go-hint">请先连接设备</div>
+    </div>
+  </div>
+
+  <!-- 训练覆盖层 -->
+  <div id="training-overlay" class="training-overlay hidden">
+    <div class="training-mode-label" id="training-mode-label">引体向上</div>
+    <div class="training-count" id="training-count">0</div>
+    <div class="training-sub" id="training-sub">自由训练</div>
+    <div class="training-imu">
+      <div class="imu-item"><span id="t-roll">0.0°</span><small>Roll</small></div>
+      <div class="imu-item"><span id="t-pitch">0.0°</span><small>Pitch</small></div>
+      <div class="imu-item"><span id="t-accz">0</span><small>accZ(mg)</small></div>
+    </div>
+    <div class="training-timer" id="training-timer">00:00</div>
+    <div class="training-btns">
+      <button class="btn-pause" id="btn-pause" onclick="togglePause()">暂停</button>
+      <button class="btn-stop"  onclick="stopTraining()">结束</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 数据页 ═══ -->
+<div id="page-data" class="page">
+  <div class="appbar">
+    <span>数据</span>
+    <button class="icon-btn" onclick="loadHistory()">↻</button>
+  </div>
+
+  <div class="month-card">
+    <div class="month-card-header">
+      <span id="month-title">本月训练概览</span>
+      <button class="toggle-btn" id="toggle-view-btn" onclick="toggleMonthView()">曲线</button>
+    </div>
+    <div id="month-stats" class="month-stats">
+      <div class="stat-item">
+        <div class="stat-val" id="stat-count">0次</div>
+        <div class="stat-lbl">训练次数</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="stat-time">0分</div>
+        <div class="stat-lbl">总时长</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="stat-score">0%</div>
+        <div class="stat-lbl">平均标准率</div>
+      </div>
+    </div>
+    <div id="month-chart" class="month-chart hidden"></div>
+  </div>
+
+  <div class="filter-bar">
+    <div class="chip selected" data-filter="all"    onclick="filterHistory(this)">全部</div>
+    <div class="chip"          data-filter="pullup" onclick="filterHistory(this)">引体向上</div>
+    <div class="chip"          data-filter="pushup" onclick="filterHistory(this)">俯卧撑</div>
+  </div>
+
+  <div id="history-list" class="history-list">
+    <div class="empty-tip">暂无训练记录</div>
+  </div>
+</div>
+
+<!-- ═══ 我的页 ═══ -->
+<div id="page-mine" class="page">
+  <div class="mine-header">
+    <div class="avatar">👤</div>
+    <div>
+      <div class="mine-name">运动达人</div>
+      <div class="mine-sub" id="mine-total-tip">累计训练 0 次</div>
+    </div>
+  </div>
+
+  <div class="total-card">
+    <div class="stat-item">
+      <div class="stat-val" id="total-sessions">0次</div>
+      <div class="stat-lbl">训练次数</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="total-reps">0个</div>
+      <div class="stat-lbl">总完成</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="total-time">0分</div>
+      <div class="stat-lbl">总时长</div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-title">连接设置</div>
+    <div class="settings-card">
+      <div class="settings-item" onclick="showServerDialog()">
+        <div class="settings-icon">📡</div>
+        <div class="settings-info">
+          <div class="settings-label">服务器地址</div>
+          <div class="settings-sub" id="server-display">192.168.1.100:8080</div>
+        </div>
+        <div class="settings-arrow">›</div>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-item">
+        <div class="settings-icon">🔵</div>
+        <div class="settings-info">
+          <div class="settings-label">连接状态</div>
+          <div class="settings-sub" id="conn-status-text">未连接</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 底部导航 ═══ -->
+<nav class="bottom-nav">
+  <div class="nav-item active" onclick="switchPage('sport', this)">
+    <div class="nav-icon">🏃</div>
+    <div class="nav-label">运动</div>
+  </div>
+  <div class="nav-item" onclick="switchPage('data', this)">
+    <div class="nav-icon">📊</div>
+    <div class="nav-label">数据</div>
+  </div>
+  <div class="nav-item" onclick="switchPage('mine', this)">
+    <div class="nav-icon">👤</div>
+    <div class="nav-label">我的</div>
+  </div>
+</nav>
+
+<!-- 服务器设置弹窗 -->
+<div id="server-modal" class="modal hidden">
+  <div class="modal-title">服务器地址</div>
+  <input id="input-ip"   class="modal-input" type="text"   placeholder="IP地址（如 192.168.4.1）">
+  <input id="input-port" class="modal-input" type="number" placeholder="端口（默认 8080）">
+  <div class="modal-btns">
+    <button class="btn-cancel"  onclick="closeModal()">取消</button>
+    <button class="btn-confirm" onclick="saveServer()">保存</button>
+  </div>
+</div>
+<div id="modal-mask" class="modal-mask hidden" onclick="closeModal()"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
